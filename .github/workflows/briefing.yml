@@ -1,0 +1,42 @@
+# 갑자기 아침 브리핑 — 매일 04:30부터 21:30까지 매시 30분(KST) 공개 정보를 모아 briefing.json 을 만든다.
+# 새벽 세 번은 기상 알람용, 낮 시간은 관심 키워드 알림이 새 소식을 찾을 수 있게.
+# 결과는 history 없는 briefing-data 브랜치에 한 커밋으로 덮어써서, 앱이
+# https://raw.githubusercontent.com/<owner>/<repo>/briefing-data/briefing.json 으로 받아 간다.
+# 날씨·미세먼지는 저장소 Secrets 의 DATA_GO_KR_KEY(공공데이터포털 인증키)가 있을 때만 들어간다.
+name: briefing
+
+on:
+  schedule:
+    - cron: "30 19-23 * * *"   # 04:30~08:30 KST (05:30은 기상청 05시 발표 반영)
+    - cron: "30 0-12 * * *"    # 09:30~21:30 KST
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: briefing
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build briefing.json
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+        run: python server/briefing/build_briefing.py out/briefing.json
+      - name: Publish to briefing-data branch
+        run: |
+          cd out
+          git init -q -b briefing-data
+          git config user.name "gapjagi-briefing"
+          git config user.email "actions@users.noreply.github.com"
+          git add briefing.json
+          git commit -q -m "briefing $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" briefing-data

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>갑자기 - 개인정보처리방침</title>
+<style>
+  body { font-family: -apple-system, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; line-height: 1.7; max-width: 760px; margin: 0 auto; padding: 40px 20px 80px; color: #222; }
+  h1 { font-size: 26px; margin-bottom: 4px; }
+  .updated { color: #777; font-size: 14px; margin-bottom: 32px; }
+  h2 { font-size: 19px; margin-top: 36px; border-left: 4px solid #4a6fa5; padding-left: 10px; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+  th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; font-size: 15px; }
+  th { background: #f5f5f5; }
+  ul { padding-left: 20px; }
+  .contact { background: #f5f7fa; padding: 16px; border-radius: 8px; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<h1>갑자기 (Gapjagi) 개인정보처리방침</h1>
+<p class="updated">최종 수정일: 2026년 11월 1일 · 시행일: 2026년 11월 1일</p>
+
+<p>
+"갑자기"(패키지명: com.gapjagi.app, 이하 "앱")는 개발자(이하 "개발자")가 제공하는
+안드로이드 캘린더 알람 앱입니다. 본 방침은 앱이 이용자의 정보를 어떻게 다루는지 설명합니다.
+</p>
+
+<h2>1. 요약</h2>
+<ul>
+  <li>회원가입·로그인 절차가 없고, <strong>이용자 정보를 받는 서버가 없습니다.</strong></li>
+  <li>앱이 다루는 모든 정보는 <strong>이용자의 기기 안에만 저장</strong>되며, 개발자를 포함한 어떠한 제3자에게도 전송·공유되지 않습니다.</li>
+  <li>"아침 브리핑" 기능은 모든 이용자에게 똑같은 <strong>공개 정보 파일을 내려받기만</strong> 합니다. 이때 앱은 이용자의 일정·설정·관심 분야·지역 등 어떤 정보도 보내지 않습니다(아래 4항).</li>
+  <li>이용자가 "학교 연동"을 켠 경우에만, 고른 학교의 급식·학사일정을 받기 위해 <strong>학교 코드와 날짜를 나이스(교육부 교육정보 개방 포털)에 직접</strong> 요청합니다. 개발자 서버를 거치지 않습니다(아래 4항).</li>
+  <li>광고 SDK, 분석(애널리틱스) SDK를 사용하지 않습니다.</li>
+</ul>
+
+<h2>2. 접근하는 권한과 사용 목적</h2>
+<table>
+  <tr><th>권한</th><th>사용 목적</th></tr>
+  <tr>
+    <td>캘린더 읽기 / 쓰기<br><code>READ_CALENDAR</code>, <code>WRITE_CALENDAR</code></td>
+    <td>이용자가 설정 화면에서 선택한 캘린더의 일정 정보(제목, 시작·종료 시각)를 읽어
+      기기 내에서 알람을 예약하는 데에만 사용합니다. 앱 안에서 일정을 추가·수정·삭제할 때만 쓰기 권한을 사용합니다.
+      이 정보는 기기 밖으로 전송되지 않습니다.</td>
+  </tr>
+  <tr>
+    <td>알림 표시<br><code>POST_NOTIFICATIONS</code></td>
+    <td>알람 화면·놓친 알람 등을 알리는 데 사용합니다.</td>
+  </tr>
+  <tr>
+    <td>정확한 알람 예약<br><code>SCHEDULE_EXACT_ALARM</code>, <code>USE_EXACT_ALARM</code></td>
+    <td>설정한 시각에 정확히 알람을 울리기 위해 사용합니다.</td>
+  </tr>
+  <tr>
+    <td>배터리 최적화 제외 요청<br><code>REQUEST_IGNORE_BATTERY_OPTIMIZATIONS</code></td>
+    <td>기기 절전 기능으로 알람이 지연되거나 울리지 않는 것을 방지하기 위해 사용합니다.</td>
+  </tr>
+  <tr>
+    <td>인터넷 접근<br><code>INTERNET</code>, <code>ACCESS_NETWORK_STATE</code></td>
+    <td>아침 브리핑용 공개 정보 파일(뉴스 제목·화제 검색어·지역별 날씨·미세먼지)을 내려받고, 학교 연동을 켠 경우 나이스에서 급식·학사일정을 받는 데에만 사용합니다.</td>
+  </tr>
+  <tr>
+    <td>부팅 완료 감지<br><code>RECEIVE_BOOT_COMPLETED</code></td>
+    <td>기기 재부팅 후에도 예약된 알람을 다시 등록하기 위해 사용합니다.</td>
+  </tr>
+</table>
+
+<h2>3. 저장하는 정보</h2>
+<p>앱은 아래 정보를 이용자의 기기 로컬 저장소(Android DataStore)에만 저장합니다. 외부 서버로 전송되지 않습니다.</p>
+<ul>
+  <li>선택한 캘린더 목록, 알람 리드타임·스누즈 간격 등 설정값</li>
+  <li>알람음 선택, 조용 시간대 설정</li>
+  <li>최근 알람 동작 기록(최대 300건 — 확인/놓침/스누즈 여부, 일정 제목, 끄기까지 걸린 시간)</li>
+  <li>아침 브리핑 설정(관심 분야, 날씨 지역)과 마지막으로 내려받은 브리핑 파일</li>
+  <li>연동한 학교(학교 이름·코드), 그날 받은 급식·학사일정, 기상 알람을 건너뛸 날짜</li>
+  <li>관심 키워드, 이미 알린 기사 링크(최근 200건)</li>
+</ul>
+<p>앱을 삭제하면 위 정보는 기기에서 함께 삭제됩니다.</p>
+
+<h2>4. 아침 브리핑</h2>
+<p>
+아침 브리핑은 개발자가 매일 새벽 공개 출처(Google 뉴스의 기사 제목·링크, Google 트렌드의 화제 검색어, 기상청 단기예보, 에어코리아 대기오염 정보)를 모아 만든
+<strong>하나의 공개 파일</strong>을 앱이 내려받아 보여 주는 방식입니다. 파일은 GitHub(raw.githubusercontent.com)에 저장되어 있으며, 모든 이용자가 같은 파일을 받습니다.
+</p>
+<ul>
+  <li>앱은 파일을 요청할 때 이용자의 일정, 관심 분야, 지역, 기기 식별자 등 <strong>어떤 정보도 함께 보내지 않습니다.</strong> 관심 분야와 지역에 맞춰 고르는 일은 기기 안에서 이루어집니다.</li>
+  <li>위치 권한을 사용하지 않습니다. 날씨 지역은 이용자가 직접 고른 시·도입니다.</li>
+  <li>파일을 내려받을 때 GitHub 서버가 일반적인 인터넷 접속 정보(IP 주소 등)를 처리할 수 있으며, 이는 <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">GitHub 개인정보처리방침</a>을 따릅니다. 개발자는 이 정보를 받거나 보관하지 않습니다.</li>
+  <li>뉴스는 제목·언론사·원문 링크만 표시하며, 제목을 누르면 해당 언론사 페이지(외부)로 이동합니다.</li>
+</ul>
+<p><strong>관심 키워드·읽어 주기(선택)</strong></p>
+<ul>
+  <li>관심 키워드는 기기 안에만 저장되며, 내려받은 공개 파일의 기사 제목과 <strong>기기 안에서</strong> 비교합니다. 키워드를 서버나 제3자에게 보내지 않습니다.</li>
+  <li>"읽어 주기"는 기기에 설치된 음성 엔진(Android 텍스트 음성 변환)으로 브리핑을 소리 내어 읽습니다. 음성 엔진의 처리는 해당 엔진 제공자의 정책을 따릅니다.</li>
+</ul>
+<p><strong>학교 연동(선택)</strong></p>
+<ul>
+  <li>이용자가 학교를 직접 검색해 연동한 경우에만 동작하며, 최대 2곳까지 연동할 수 있습니다.</li>
+  <li>학교를 찾을 때는 입력한 학교 이름을, 급식·학사일정을 받을 때는 <strong>학교 코드와 날짜만</strong> 나이스(open.neis.go.kr, 교육부)에 보냅니다. 아이의 이름·학년·반 등 다른 정보는 보내지 않으며, 개발자는 이 요청을 받거나 보관하지 않습니다.</li>
+  <li>연동한 학교 목록과 그날 받은 급식·일정은 기기 안에만 저장되며, 연동을 해제하거나 앱을 삭제하면 지워집니다.</li>
+  <li>학교 휴업일에 이용자가 "그날 기상 알람 끄기"를 누르면, 그 날짜만 기기 안에 기록해 알람을 건너뜁니다.</li>
+</ul>
+
+<h2>5. 인앱 결제 정보</h2>
+<p>
+앱 내 "Pro" 기능 구매는 Google Play 인앱결제(Google Play Billing)를 통해 처리됩니다.
+결제 수단(카드 정보 등)은 Google이 직접 처리하며, 개발자는 이를 수집하거나 저장하지 않습니다.
+Google의 개인정보 처리에 대해서는
+<a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google 개인정보처리방침</a>을 참고하세요.
+</p>
+
+<h2>6. 제3자 제공</h2>
+<p>개발자는 이용자의 정보를 제3자에게 제공, 판매, 임대하지 않습니다. 앱에는 광고 SDK나 분석 SDK가 포함되어 있지 않습니다.</p>
+
+<h2>7. 아동의 개인정보</h2>
+<p>본 앱은 만 14세 미만 아동을 대상으로 하지 않으며, 아동으로부터 개인정보를 의도적으로 수집하지 않습니다.</p>
+
+<h2>8. 개인정보처리방침의 변경</h2>
+<p>본 방침은 앱 기능 변경에 따라 수정될 수 있으며, 변경 시 이 페이지에 최신 내용을 반영하고 상단의 "최종 수정일"을 갱신합니다.</p>
+
+<h2>9. 문의처</h2>
+<div class="contact">
+  <p>개인정보 관련 문의 사항은 아래 이메일로 연락해 주세요.</p>
+  <p><strong>이메일: kscgmg@gmail.com</strong></p>
+</div>
+
+</body>
+</html>
