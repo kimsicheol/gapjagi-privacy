@@ -1,6 +1,6 @@
 # 갑자기 아침 브리핑 — 매일 04:30부터 21:30까지 매시 30분(KST) 공개 정보를 모아 briefing.json 을 만든다.
 # 새벽 세 번은 기상 알람용, 낮 시간은 관심 키워드 알림이 새 소식을 찾을 수 있게.
-# 결과는 history 없는 briefing-data 브랜치에 한 커밋으로 덮어써서, 앱이
+# 결과(briefing.json, 해외용 world.json)는 history 없는 briefing-data 브랜치에 한 커밋으로 덮어써서, 앱이
 # https://raw.githubusercontent.com/<owner>/<repo>/briefing-data/briefing.json 으로 받아 간다.
 # 날씨·미세먼지는 저장소 Secrets 의 DATA_GO_KR_KEY(공공데이터포털 인증키)가 있을 때만 들어간다.
 name: briefing
@@ -38,5 +38,6 @@ jobs:
           git config user.name "gapjagi-briefing"
           git config user.email "actions@users.noreply.github.com"
           git add briefing.json
+          if [ -f world.json ]; then git add world.json; fi
           git commit -q -m "briefing $(date -u +%Y-%m-%dT%H:%MZ)"
           git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" briefing-data
