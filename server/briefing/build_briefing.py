@@ -1,7 +1,9 @@
 """
 갑자기 아침 브리핑 — 공개 정보만 모아 briefing.json 하나로 만든다.
 
-매일 04:30 · 05:30 · 06:30(KST)에 GitHub Actions가 실행한다. 표준 라이브러리만 쓴다.
+매일 04:30~21:30(KST) 매시 30분에 GitHub Actions가 실행한다. GitHub 예약 실행은 자주 늦거나 빠지므로
+cron-job.org가 같은 시각에 workflow_dispatch로 직접 깨운다(앱의 "매시간 새로 받아요" 문구가 이것에 기댄다).
+표준 라이브러리만 쓴다.
 앱은 이 파일을 통째로 내려받아 관심 분야·지역 고르기를 폰 안에서 한다 — 사용자 정보는 서버로 가지 않는다.
 
 출처
@@ -9,6 +11,7 @@
 - 화제 검색어: 구글 트렌드 Trending now RSS (KR)
 - 날씨: 기상청 단기예보(공공데이터포털) — DATA_GO_KR_KEY 가 있을 때만
 - 미세먼지: 에어코리아 시도별 실시간(공공데이터포털) — 같은 키
+- 해외(세계 도시 날씨·공휴일·영어 뉴스)는 build_world.py 가 world.json 으로 따로 만든다
 
 실행: python build_briefing.py out/briefing.json
 """
@@ -362,6 +365,12 @@ def main():
         },
     }
     briefing["news"], briefing["pool"] = build_news(trend_words)
+    # 한국 공휴일 — 앱이 "내일은 공휴일, 기상 알람 끌까요?"를 묻는 데 쓴다. 실패해도 브리핑은 낸다
+    try:
+        import build_world
+        briefing["holidays"] = {"KR": build_world.holidays_for("KR")}
+    except Exception as e:
+        log("holidays fail", e)
     key = os.environ.get("DATA_GO_KR_KEY", "").strip()
     if key:
         briefing["weather"] = build_weather(key, now)
@@ -373,6 +382,12 @@ def main():
         json.dump(briefing, f, ensure_ascii=False, separators=(",", ":"))
     total = sum(len(v) for v in briefing["news"].values())
     log("wrote", out_path, "news", total, "trends", len(trends))
+    # 해외(영어·세계 도시) 브리핑은 따로 world.json — 무엇이 실패해도 briefing.json 은 이미 써 두었다
+    try:
+        import build_world
+        build_world.build(os.path.join(os.path.dirname(out_path) or ".", "world.json"))
+    except Exception as e:
+        log("world fail", e)
     if total == 0:
         sys.exit(1)  # 뉴스가 하나도 없으면 실패로 끝내 이전 파일을 지킨다
 
