@@ -133,9 +133,7 @@ POOL_PER_CATEGORY = 15
 
 
 def fetch(url: str, timeout: int = 20) -> bytes:
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read()
+    return kb.fetch(url, timeout, ua=UA)  # 재시도는 build_briefing.fetch 가 맡는다
 
 
 def log(*a):
@@ -237,12 +235,19 @@ def build_edition(cc: str):
     urls["parenting"] = "https://news.google.com/rss/search?q=" + urllib.parse.quote(PARENTING_Q) + f"&{gn}"
 
     news, pool, seen = {}, [], set()
+    news_down = False
     for key, url in urls.items():
+        if news_down:
+            news[key] = []
+            continue
         try:
             items = kb.parse_news(fetch(url))
         except Exception as e:
             log("news fail", cc, key, e)
             news[key] = []
+            if not any(news.values()) and kb.is_transient(e):
+                news_down = True  # 구글 뉴스가 막혔으면 이 나라 나머지 분야는 건너뛴다
+                log("news down", cc)
             continue
         scored = []
         for it in items[:40]:

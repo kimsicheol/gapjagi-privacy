@@ -22,6 +22,8 @@ import math
 import os
 import re
 import sys
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -72,10 +74,27 @@ REGIONS = [
 ]
 
 
-def fetch(url: str, timeout: int = 20) -> bytes:
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read()
+RETRY_WAITS = (2, 5)  # 일시 장애(503·429 등)면 2초, 5초 쉬고 두 번 더 해 본다
+_TRANSIENT_HTTP = {429, 500, 502, 503, 504}
+
+
+def is_transient(e: Exception) -> bool:
+    """잠깐 기다리면 풀릴 수 있는 오류인가 — 404 같은 잘못된 주소는 아니다"""
+    if isinstance(e, urllib.error.HTTPError):
+        return e.code in _TRANSIENT_HTTP
+    return isinstance(e, (urllib.error.URLError, TimeoutError, ConnectionError))
+
+
+def fetch(url: str, timeout: int = 20, ua: str = "") -> bytes:
+    req = urllib.request.Request(url, headers={"User-Agent": ua or UA})
+    for i in range(len(RETRY_WAITS) + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.read()
+        except Exception as e:
+            if i == len(RETRY_WAITS) or not is_transient(e):
+                raise
+            time.sleep(RETRY_WAITS[i])
 
 
 def log(*a):
@@ -130,12 +149,20 @@ def build_news(trend_words):
     out = {}
     pool = []
     seen = set()
+    news_down = False
     for key, (label, url) in CATEGORIES.items():
+        if news_down:
+            out[key] = []
+            continue
         try:
             items = parse_news(fetch(url))
         except Exception as e:  # 한 분야가 실패해도 나머지는 낸다
             log("news fail", key, e)
             out[key] = []
+            # 아직 한 분야도 못 받았는데 재시도까지 일시 장애면 구글 뉴스 자체가 막힌 것 — 나머지는 건너뛴다
+            if not any(out.values()) and is_transient(e):
+                news_down = True
+                log("news down — 나머지 분야 건너뜀")
             continue
         scored = []
         for it in items[:40]:
