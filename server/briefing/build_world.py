@@ -278,6 +278,23 @@ def build_edition(cc: str):
     return {"news": news, "pool": pool, "trends": trends}
 
 
+EDITION_RETRY_AFTER = 60
+
+
+def build_editions():
+    """나라별 영어 뉴스. 뉴스가 통째로 빈 판은 1분 쉬고 한 번 더 받는다(구글 뉴스 일시 장애)"""
+    eds = {cc: build_edition(gl) for cc, gl in EDITIONS.items()}
+    empty = [cc for cc, e in eds.items() if not any(e["news"].values())]
+    if empty:
+        log("editions empty", empty, "— %d초 뒤 다시" % EDITION_RETRY_AFTER)
+        time.sleep(EDITION_RETRY_AFTER)
+        for cc in empty:
+            again = build_edition(EDITIONS[cc])
+            if any(again["news"].values()):
+                eds[cc] = again
+    return eds
+
+
 # ---------------------------------------------------------------- 묶기
 
 def build(out_path: str):
@@ -291,7 +308,7 @@ def build(out_path: str):
         },
         "weather": build_weather(),
         "holidays": build_holidays(),
-        "editions": {cc: build_edition(gl) for cc, gl in EDITIONS.items()},
+        "editions": build_editions(),
         "sources": {
             "weather": "MET Norway (CC BY 4.0)",
             "holidays": "Nager.Date",
