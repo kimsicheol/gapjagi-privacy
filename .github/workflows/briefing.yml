@@ -21,7 +21,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20  # 뉴스 장애 때 3분 기다렸다 다시 받고, 날씨 재시도도 있어 넉넉히
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
