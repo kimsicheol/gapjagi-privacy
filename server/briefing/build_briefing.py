@@ -32,6 +32,16 @@ KST = dt.timezone(dt.timedelta(hours=9))
 UA = "Mozilla/5.0 (GapjagiBriefing; +https://kimsicheol.github.io/gapjagi-privacy/)"
 GN = "hl=ko&gl=KR&ceid=KR:ko"
 
+# 몇 분 가는 장애(구글 뉴스 503, 기상청 시간 초과)를 넘기는 장치.
+# 뉴스가 통째로 막히면 이만큼 기다렸다 한 번 더 받는다.
+NEWS_RETRY_AFTER = 180
+# 날씨는 지역마다 받는데 서버가 안 받으면 지역당 1분 넘게 걸린다 — 이 시간을 넘기면 남은 지역은
+# 다시 받지 않고 이전 브리핑 값으로 채워, 작업 시간 제한(briefing.yml timeout-minutes)에 안 걸리게 한다.
+WEATHER_BUDGET = 300
+# 빠진 지역·뉴스를 채울 직전 브리핑. 같은 날 것만 쓴다
+REPO = os.environ.get("GITHUB_REPOSITORY", "kimsicheol/gapjagi-privacy")
+PREV_URL = f"https://raw.githubusercontent.com/{REPO}/briefing-data/briefing.json"
+
 # 앱의 BriefingCategory.key 와 같아야 한다
 CATEGORIES = {
     "society": ("사회·정치", f"https://news.google.com/rss/headlines/section/topic/NATION?{GN}"),
@@ -279,44 +289,64 @@ def today_extremes(items, today: str):
 
 
 def build_weather(key: str, now: dt.datetime):
-    base_date, base_t = base_time(now)
-    today = now.strftime("%Y%m%d")
+    """지역별 날씨. 실패한 지역은 끝에 한 번 더 받아 본다(시간이 남았을 때만)"""
+    start = time.monotonic()
     out = {}
-    for code, name, lat, lon, _ in REGIONS:
-        nx, ny = latlon_to_grid(lat, lon)
-        try:
-            items = fetch_forecast(key, base_date, base_t, nx, ny)
-        except Exception as e:
-            log("weather fail", code, e)
+    failed = []
+    for region in REGIONS:
+        if time.monotonic() - start > WEATHER_BUDGET:
+            failed.append(region)
             continue
-        pop = [None] * 24
-        tmp = [None] * 24
-        pty = [None] * 24
-        tmn, tmx = today_extremes(items, today)
-        # 오늘 최저(06시)는 02시 발표에만, 최고(15시)는 11시 발표까지만 들어 있다.
-        # 빠진 값은 오늘 02시 발표에서 채운다 — 안 그러면 화면에 "최저 -"로 나온다.
-        if (tmn is None or tmx is None) and base_date == today and base_t != "0200":
-            try:
-                tmn2, tmx2 = today_extremes(fetch_forecast(key, today, "0200", nx, ny), today)
-                tmn = tmn if tmn is not None else tmn2
-                tmx = tmx if tmx is not None else tmx2
-            except Exception as e:
-                log("weather extremes fail", code, e)
-        for it in items:
-            if it["fcstDate"] != today:
-                continue
-            h = int(it["fcstTime"][:2])
-            v = it["fcstValue"]
-            c = it["category"]
-            if c == "POP":
-                pop[h] = int(v)
-            elif c == "TMP":
-                tmp[h] = float(v)
-            elif c == "PTY":
-                pty[h] = int(v)
-        out[code] = {"name": name, "pop": pop, "tmp": tmp, "pty": pty, "tmn": tmn, "tmx": tmx}
+        if not weather_region(key, now, region, out):
+            failed.append(region)
+    if failed:
+        log("weather retry", [r[0] for r in failed])
+        for region in failed:
+            if time.monotonic() - start > WEATHER_BUDGET:
+                log("weather budget over — 남은 지역은 이전 값으로")
+                break
+            weather_region(key, now, region, out)
     log("weather regions", len(out))
     return out
+
+
+def weather_region(key: str, now: dt.datetime, region, out) -> bool:
+    code, name, lat, lon, _ = region
+    base_date, base_t = base_time(now)
+    today = now.strftime("%Y%m%d")
+    nx, ny = latlon_to_grid(lat, lon)
+    try:
+        items = fetch_forecast(key, base_date, base_t, nx, ny)
+    except Exception as e:
+        log("weather fail", code, e)
+        return False
+    pop = [None] * 24
+    tmp = [None] * 24
+    pty = [None] * 24
+    tmn, tmx = today_extremes(items, today)
+    # 오늘 최저(06시)는 02시 발표에만, 최고(15시)는 11시 발표까지만 들어 있다.
+    # 빠진 값은 오늘 02시 발표에서 채운다 — 안 그러면 화면에 "최저 -"로 나온다.
+    if (tmn is None or tmx is None) and base_date == today and base_t != "0200":
+        try:
+            tmn2, tmx2 = today_extremes(fetch_forecast(key, today, "0200", nx, ny), today)
+            tmn = tmn if tmn is not None else tmn2
+            tmx = tmx if tmx is not None else tmx2
+        except Exception as e:
+            log("weather extremes fail", code, e)
+    for it in items:
+        if it["fcstDate"] != today:
+            continue
+        h = int(it["fcstTime"][:2])
+        v = it["fcstValue"]
+        c = it["category"]
+        if c == "POP":
+            pop[h] = int(v)
+        elif c == "TMP":
+            tmp[h] = float(v)
+        elif c == "PTY":
+            pty[h] = int(v)
+    out[code] = {"name": name, "pop": pop, "tmp": tmp, "pty": pty, "tmn": tmn, "tmx": tmx}
+    return True
 
 
 def grade(pm10, pm25):
@@ -368,6 +398,29 @@ def build_air(key: str):
 
 # ---------------------------------------------------------------- 묶기
 
+def fill_from_previous(briefing):
+    """이번에 못 받은 지역의 날씨·미세먼지를 직전 브리핑(같은 날)에서 이어 쓴다.
+    기상청이 몇 지역만 안 받는 일이 있어, 그대로 내면 앱에 "날씨 정보를 준비하고 있어요"만 뜬다."""
+    missing_w = [c for c in briefing["regions"] if c not in briefing["weather"]]
+    missing_a = [c for c in briefing["regions"] if c not in briefing["air"]]
+    if not missing_w and not missing_a:
+        return
+    try:
+        prev = json.loads(fetch(PREV_URL))
+    except Exception as e:
+        log("previous briefing fail", e)
+        return
+    if prev.get("date") != briefing["date"]:
+        log("previous briefing is", prev.get("date"), "— 이어 쓰지 않음")
+        return
+    for field, missing in (("weather", missing_w), ("air", missing_a)):
+        kept = [c for c in missing if c in (prev.get(field) or {})]
+        for c in kept:
+            briefing[field][c] = prev[field][c]
+        if kept:
+            log(field, "carried over", kept)
+
+
 def main():
     out_path = sys.argv[1] if len(sys.argv) > 1 else "briefing.json"
     now = dt.datetime.now(KST)
@@ -391,6 +444,7 @@ def main():
             "air": "에어코리아(한국환경공단)",
         },
     }
+    news_started = time.monotonic()
     briefing["news"], briefing["pool"] = build_news(trend_words)
     # 한국 공휴일 — 앱이 "내일은 공휴일, 기상 알람 끌까요?"를 묻는 데 쓴다. 실패해도 브리핑은 낸다
     try:
@@ -402,8 +456,16 @@ def main():
     if key:
         briefing["weather"] = build_weather(key, now)
         briefing["air"] = build_air(key)
+        fill_from_previous(briefing)
     else:
         log("DATA_GO_KR_KEY 없음 — 날씨·미세먼지 생략")
+    # 뉴스가 통째로 막혔으면(구글 뉴스 503 등) 몇 분 기다렸다 한 번 더 — 날씨 받는 동안 흐른 시간은 빼고 기다린다
+    if not any(briefing["news"].values()):
+        wait = NEWS_RETRY_AFTER - (time.monotonic() - news_started)
+        if wait > 0:
+            log("news empty — %d초 뒤 다시" % wait)
+            time.sleep(wait)
+        briefing["news"], briefing["pool"] = build_news(trend_words)
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(briefing, f, ensure_ascii=False, separators=(",", ":"))
